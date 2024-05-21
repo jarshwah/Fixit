@@ -26,7 +26,8 @@ from typing import (
 
 from libcst import CSTNode, CSTNodeT, FlattenSentinel, RemovalSentinel
 from libcst._add_slots import add_slots
-from libcst.metadata import CodePosition as CodePosition, CodeRange as CodeRange
+from libcst.metadata import CodePosition as CodePosition
+from libcst.metadata import CodeRange as CodeRange
 from packaging.version import Version
 
 __all__ = ("Version",)
@@ -171,7 +172,7 @@ class Tags(Container[str]):
         return False
 
 
-@dataclass
+@dataclass(frozen=True)
 class Options:
     """
     Command-line options to affect runtime behavior

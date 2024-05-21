@@ -2,14 +2,12 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
 import importlib
 import inspect
 import logging
 import pkgutil
-import platform
 import sys
-from contextlib import contextmanager, ExitStack
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from types import ModuleType
 from typing import (
@@ -34,8 +32,6 @@ from packaging.version import InvalidVersion, Version
 from .format import FORMAT_STYLES
 from .ftypes import (
     Config,
-    is_collection,
-    is_sequence,
     Options,
     QualifiedRule,
     QualifiedRuleRegex,
@@ -43,6 +39,8 @@ from .ftypes import (
     RuleOptionsTable,
     RuleOptionTypes,
     T,
+    is_collection,
+    is_sequence,
 )
 from .rule import LintRule
 from .util import append_sys_path
@@ -390,7 +388,9 @@ def merge_configs(
     enable_rules: Set[QualifiedRule] = {QualifiedRule("fixit.rules")}
     disable_rules: Set[QualifiedRule] = set()
     rule_options: RuleOptionsTable = {}
-    target_python_version: Optional[Version] = Version(platform.python_version())
+    target_python_version: Optional[Version] = Version(
+        "3.13.0"
+    )  # platform.python_version())
     target_formatter: Optional[str] = None
 
     def process_subpath(
@@ -517,12 +517,57 @@ def merge_configs(
     )
 
 
+# @lru_cache(maxsize=1024)
+# def _generate_config_cached(
+#     path: Path, root: Optional[Path], options: Optional[Options]
+# ) -> Config:
+#     if options and options.config_file:
+#         config_paths = [options.config_file]
+#     else:
+#         config_paths = locate_configs(path, root=root)
+
+#     raw_configs = read_configs(config_paths)
+#     config = merge_configs(path, raw_configs, root=root)
+
+#     if options:
+#         if options.tags:
+#             config.tags = options.tags
+
+#         if options.rules:
+#             config.enable = list(options.rules)
+#             config.disable = []
+
+#     return config
+
+
+# def generate_config(
+#     path: Path, root: Optional[Path] = None, *, options: Optional[Options] = None
+# ) -> Config:
+#     """
+#     Given a file path, walk upwards looking for and applying cascading configs
+#     """
+#     path = path.resolve()
+#     path = path.parent if path.is_file() else path
+
+#     if root is not None:
+#         root = root.resolve()
+
+#     print(f"{_generate_config_cached.cache_info()}")
+#     return _generate_config_cached(path, root, options)
+
+
+config = None
+
+
 def generate_config(
     path: Path, root: Optional[Path] = None, *, options: Optional[Options] = None
 ) -> Config:
     """
     Given a file path, walk upwards looking for and applying cascading configs
     """
+    global config
+    if config is not None:
+        return config
     path = path.resolve()
 
     if root is not None:
