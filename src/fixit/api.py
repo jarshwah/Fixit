@@ -4,11 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+import multiprocessing.pool
 import sys
 import traceback
 from functools import partial
 from pathlib import Path
-from typing import Generator, Iterable, List, Optional
+from typing import Generator, Iterable, List, Optional, Sequence
 
 import click
 import trailrunner
@@ -17,7 +18,7 @@ from moreorless.click import echo_color_precomputed_diff
 from .config import collect_rules, generate_config
 from .engine import LintRunner
 from .format import format_module
-from .ftypes import Config, FileContent, LintViolation, Options, Result, STDIN
+from .ftypes import STDIN, Config, FileContent, LintViolation, Options, Result
 
 LOG = logging.getLogger(__name__)
 
@@ -67,6 +68,9 @@ def print_result(
         return False
 
 
+rules = None
+
+
 def fixit_bytes(
     path: Path,
     content: FileContent,
@@ -90,8 +94,10 @@ def fixit_bytes(
     automatically, even if ``False`` is sent back to the generator.
 
     """
+    global rules
     try:
-        rules = collect_rules(config)
+        if rules is None:
+            rules = collect_rules(config)
 
         if not rules:
             yield Result(path, violation=None)
@@ -193,6 +199,8 @@ def _fixit_file_wrapper(
     TODO: replace this with some sort of queue or whatever
     """
     return list(fixit_file(path, autofix=autofix, options=options))
+    return []
+    # return list(fixit_file(path, autofix=autofix, options=options))
 
 
 def fixit_paths(
@@ -255,6 +263,21 @@ def fixit_paths(
         for path in expanded_paths:
             yield from fixit_file(path, autofix=autofix, options=options)
     else:
-        fn = partial(_fixit_file_wrapper, autofix=autofix, options=options)
-        for _, results in trailrunner.run_iter(expanded_paths, fn):
+        yield from fixit_file_multiprocessing(
+            expanded_paths, autofix=autofix, options=options
+        )
+        # fn = partial(_fixit_file_wrapper, autofix=autofix, options=options)
+        # for _, results in trailrunner.run_iter(expanded_paths, fn):
+        #     yield from results
+
+
+def fixit_file_multiprocessing(
+    paths: Sequence[Path], autofix: bool, options: Optional[Options] = None
+) -> Generator[Result, bool, None]:
+    with multiprocessing.Pool() as pool:
+        for results in pool.imap_unordered(
+            partial(_fixit_file_wrapper, autofix=autofix, options=options),
+            paths,
+            chunksize=2000,
+        ):
             yield from results

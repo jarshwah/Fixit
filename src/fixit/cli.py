@@ -88,12 +88,14 @@ def main(
         debug=debug,
         config_file=config_file,
         tags=Tags.parse(tags),
-        rules=sorted(
-            {
-                parse_rule(r, Path.cwd())
-                for r in (rs.strip() for rs in rules.split(","))
-                if r
-            }
+        rules=tuple(
+            sorted(
+                {
+                    parse_rule(r, Path.cwd())
+                    for r in (rs.strip() for rs in rules.split(","))
+                    if r
+                }
+            )
         ),
     )
 
